@@ -1,0 +1,119 @@
+function modifyPageUrls(trackingId, urlParams) {
+if (trackingId && trackingId.length <= 0 ) {
+return;
+}
+
+// get all the anchor tags
+let anchorTags = document.getElementsByTagName('a')
+// loop through the anchor tags and
+for (let i = 0; i < anchorTags.length; i++) {
+let aTag = anchorTags[i]
+if (aTag.hasAttribute('href')) {
+let aUrl = new URL(aTag)
+aUrl.searchParams.set('tid', trackingId)
+anchorTags[i].setAttribute('href', aUrl)
+}
+}
+
+// get all the image tags with a data-imagelink
+let imageLinks = document.querySelectorAll('img[data-imagelink]:not([data-imagelink=""])')
+for (let i = 0; i < imageLinks.length; i++) {
+let iUrl = new URL(imageLinks[i].getAttribute('data-imagelink'))
+iUrl.searchParams.set('tid', trackingId)
+imageLinks[i].setAttribute('data-imagelink', iUrl)
+}
+}
+
+const cometlySources = [
+'tid',
+'cometly',
+'utm_campaign',
+'utm_source',
+'utm_medium',
+'utm_content',
+'utm_term'
+]
+
+function findTidSource(urlParams) {
+cometlySources.forEach((source) => {
+if (urlParams.has(source)) {
+if (
+urlParams.get(source).toLowerCase() === 'facebook' ||
+urlParams.get(source).toLowerCase() === 'tiktok'
+) {
+return urlParams.get(source);
+}
+}
+})
+
+return 'facebook';
+}
+
+function findAdId(urlParams) {
+if (urlParams.has('tid')) {
+return urlParams.get('tid')
+} else if (urlParams.has('cometly')) {
+return urlParams.get('cometly')
+} else if (urlParams.has('utm_campaign')) {
+return urlParams.get('utm_campaign')
+}
+
+return '';
+}
+
+function resolveTid(urlParams) {
+//First check if any of the sources already start with a prefix
+cometlySources.forEach((source) => {
+if (urlParams.has(source)) {
+if (
+urlParams.get(source).startsWith('tt_') ||
+urlParams.get(source).startsWith('fb_')
+) {
+return urlParams.get(source);
+}
+}
+})
+
+//Find source and then find the id
+let source = findTidSource(urlParams);
+let adId = findAdId(urlParams);
+
+if (adId.length <= 0) {
+return ''
+}
+
+if (source === 'facebook') {
+return 'fb_' + adId;
+} else if (source === 'tiktok') {
+return 'tt_' + adId;
+}
+}
+
+if (typeof url === 'undefined') {
+let url = new URL(document.URL)
+
+// find the cometly parameter... if it doesn't exist, we'll use the utm_campaign param, BUT if tid already exists, then
+// we'll use that instead
+let urlParams = new URLSearchParams(url.search)
+
+let tid = ''
+myStorage = window.localStorage;
+if (myStorage.getItem('tid')) {
+tid = myStorage.getItem('tid');
+myStorage.removeItem('tid');
+} else {
+tid = resolveTid(urlParams)
+if (tid.length > 0) {
+myStorage.setItem('tid', tid);
+}
+}
+
+// if the tid has a "?" in it, then something happened so we need to replace the "?" with an "&" and reload the page
+if (tid && tid.indexOf('?') > -1) {
+let decoded_params = decodeURIComponent(urlParams.toString());
+let new_params = decoded_params.replace('?', '&')
+url = url.toString().replace(decoded_params, new_params);
+window.location = url;
+}
+modifyPageUrls(tid, urlParams);
+}
